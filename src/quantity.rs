@@ -122,6 +122,10 @@ macro_rules! quantity {
                 $singular:expr, $plural:expr;)+
         }
     ) => {
+        mod __system {
+            pub use super::super::*;
+        }
+
         $(#[$dim_attr])*
         pub type Dimension = super::$system<$($crate::typenum::$dimension),+, $kind>;
 
@@ -150,131 +154,8 @@ macro_rules! quantity {
         {
         }
 
-        $(quantity!(@unit $(#[$unit_attr])* @$unit);
-
-        impl super::Unit for $unit {
-            #[inline(always)]
-            fn abbreviation() -> &'static str {
-                $abbreviation
-            }
-
-            #[inline(always)]
-            fn singular() -> &'static str {
-                $singular
-            }
-
-            #[inline(always)]
-            fn plural() -> &'static str {
-                $plural
-            }
-        }
-
-        impl Unit for $unit {})+
-
-        storage_types! {
-            types: Float;
-
-            $(impl $crate::Conversion<V> for super::$unit {
-                type T = V;
-
-                #[inline(always)]
-                fn coefficient() -> Self::T {
-                    quantity!(@coefficient $($conversion),+)
-                }
-
-                #[inline(always)]
-                #[allow(unused_variables)]
-                fn constant(op: $crate::ConstantOp) -> Self::T {
-                    quantity!(@constant op $($conversion),+)
-                }
-            }
-
-            impl super::Conversion<V> for super::$unit {})+
-        }
-
-        storage_types! {
-            types: PrimInt, BigInt;
-            pub type T = $crate::num::rational::Ratio<V>;
-
-            #[inline(always)]
-            fn from_f64(value: f64) -> T {
-                <T as $crate::num::FromPrimitive>::from_f64(value).unwrap()
-            }
-
-            $(impl $crate::Conversion<V> for super::$unit {
-                type T = T;
-
-                #[inline(always)]
-                fn coefficient() -> Self::T {
-                    from_f64(quantity!(@coefficient $($conversion),+))
-                }
-
-                #[inline(always)]
-                #[allow(unused_variables)]
-                fn constant(op: $crate::ConstantOp) -> Self::T {
-                    from_f64(quantity!(@constant op $($conversion),+))
-                }
-            }
-
-            impl super::Conversion<V> for super::$unit {})+
-        }
-
-        storage_types! {
-            types: BigUint;
-            pub type T = $crate::num::rational::Ratio<V>;
-
-            #[inline(always)]
-            fn from_f64(value: f64) -> T {
-                use $crate::num::FromPrimitive;
-
-                let c = $crate::num::rational::Ratio::<$crate::num::BigInt>::from_f64(value)
-                    .unwrap();
-
-                T::new(c.numer().to_biguint().unwrap(), c.denom().to_biguint().unwrap())
-            }
-
-            $(impl $crate::Conversion<V> for super::$unit {
-                type T = T;
-
-                #[inline(always)]
-                fn coefficient() -> Self::T {
-                    from_f64(quantity!(@coefficient $($conversion),+))
-                }
-
-                #[inline(always)]
-                #[allow(unused_variables)]
-                fn constant(op: $crate::ConstantOp) -> Self::T {
-                    from_f64(quantity!(@constant op $($conversion),+))
-                }
-            }
-
-            impl super::Conversion<V> for super::$unit {})+
-        }
-
-        storage_types! {
-            types: Ratio;
-
-            #[inline(always)]
-            fn from_f64(value: f64) -> V {
-                <V as $crate::num::FromPrimitive>::from_f64(value).unwrap()
-            }
-
-            $(impl $crate::Conversion<V> for super::$unit {
-                type T = V;
-
-                #[inline(always)]
-                fn coefficient() -> Self::T {
-                    from_f64(quantity!(@coefficient $($conversion),+))
-                }
-
-                #[inline(always)]
-                #[allow(unused_variables)]
-                fn constant(op: $crate::ConstantOp) -> Self::T {
-                    from_f64(quantity!(@constant op $($conversion),+))
-                }
-            }
-
-            impl super::Conversion<V> for super::$unit {})+
+        unit! {
+            $($(#[$unit_attr])* @$unit: $($conversion),+; $abbreviation, $singular, $plural;)+
         }
 
         /// Quantity description.
@@ -518,27 +399,6 @@ macro_rules! quantity {
                     }
                 }
             }
-        }
-    };
-    (@unit $(#[$unit_attr:meta])+ @$unit:ident) => {
-        $(#[$unit_attr])*
-        #[allow(non_camel_case_types)]
-        #[derive(Clone, Copy, Debug, Hash)]
-        pub struct $unit;
-    };
-    (@unit @$unit:ident) => {
-        /// Measurement unit.
-        #[allow(non_camel_case_types)]
-        #[derive(Clone, Copy, Debug, Hash)]
-        pub struct $unit;
-    };
-    (@coefficient $factor:expr, $const:expr) => { $factor };
-    (@coefficient $factor:expr) => { $factor };
-    (@constant $op:ident $factor:expr, $const:expr) => { $const };
-    (@constant $op:ident $factor:expr) => {
-        match $op {
-            $crate::ConstantOp::Add => -0.0,
-            $crate::ConstantOp::Sub => 0.0,
         }
     };
 }
